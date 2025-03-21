@@ -25,10 +25,43 @@
             text-align: center;
             margin-bottom: 30px;
         }
+        .user-info {
+            text-align: right;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .user-info .email {
+            font-weight: bold;
+            color: #2196F3;
+        }
+        .logout-btn {
+            background-color: #f44336;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            margin-left: 10px;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .upload-section h2 {
+            color: #2196F3;
+            margin-top: 0;
+        }
         .upload-form {
             text-align: center;
         }
-        .file-input {
+        .input-group {
             margin: 20px 0;
         }
         .submit-btn {
@@ -62,10 +95,103 @@
             border-left: 3px solid #2196F3;
             border-radius: 4px;
         }
+        .or-divider {
+            text-align: center;
+            margin: 30px 0;
+            position: relative;
+        }
+        .or-divider:before,
+        .or-divider:after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background-color: #ddd;
+        }
+        .or-divider:before {
+            left: 0;
+        }
+        .or-divider:after {
+            right: 0;
+        }
+        .or-text {
+            background-color: white;
+            padding: 0 10px;
+            color: #666;
+            position: relative;
+            z-index: 1;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .google-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .error {
+            color: red;
+            margin-bottom: 10px;
+        }
+        .success {
+            color: green;
+            margin-bottom: 10px;
+        }
+        #sheet-selector {
+            display: none;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        {% if user_email %}
+        <div class="user-info">
+            Logged in as: <span class="email">{{ user_email }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+        {% endif %}
+
         <h1>Salary Slip Generator</h1>
         
         {% with messages = get_flashed_messages() %}
@@ -78,17 +204,57 @@
             {% endif %}
         {% endwith %}
         
-        <form class="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
-            <div class="file-input">
-                <input type="file" name="file" accept=".csv">
+        <div class="upload-section">
+            <h2>Upload CSV File</h2>
+            <form class="upload-form" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data">
+                <div class="input-group">
+                    <input type="file" name="file" accept=".csv">
+                </div>
+                <button type="submit" class="submit-btn">Generate from CSV</button>
+            </form>
+        </div>
+
+        <div class="or-divider">
+            <span class="or-text">OR</span>
+        </div>
+
+        <div class="upload-section">
+            <h2>Use Google Sheet</h2>
+            {% if not user_email %}
+            <div class="google-section">
+                <p>When you enter a Google Sheets URL, you'll be prompted to log in with your Google account.</p>
             </div>
-            <button type="submit" class="submit-btn">Generate Salary Slips</button>
-        </form>
+            {% endif %}
+            <form id="sheet-form" action="{{ url_for('process_sheet_url') }}" method="post">
+                <div class="input-group">
+                    <label for="sheet_url">Google Sheet URL:</label>
+                    <input type="text" id="sheet_url" name="sheet_url" placeholder="Enter Google Sheets URL" required>
+                </div>
+                
+                <div id="sheet-selector" style="display: none;">
+                    <label for="sheet_name">Select Sheet:</label>
+                    <select id="sheet_name" name="sheet_name" required>
+                        <option value="">Select a sheet</option>
+                    </select>
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" id="fetch-sheets">Fetch Available Sheets</button>
+                    <button type="submit" id="generate-button" style="display: none;">Generate Salary Slips</button>
+                </div>
+            </form>
+        </div>
         
         <div class="instructions">
             <h3>Instructions:</h3>
             <ol>
-                <li>Prepare your CSV file with the following columns:
+                <li>Choose one of the following options:
+                    <ul>
+                        <li>Upload a CSV file from your computer</li>
+                        <li>Share a Google Sheet URL (make sure the sheet is shared with view access)</li>
+                    </ul>
+                </li>
+                <li>Your data should have the following columns:
                     <ul>
                         <li>Name</li>
                         <li>Position</li>
@@ -104,11 +270,71 @@
                         <li>Comment (optional)</li>
                     </ul>
                 </li>
-                <li>Click "Choose File" and select your CSV file</li>
-                <li>Click "Generate Salary Slips" to create the salary slips</li>
+                <li>Click the appropriate button to generate salary slips</li>
                 <li>You will be redirected to view the generated salary slips</li>
             </ol>
         </div>
     </div>
+
+    <script>
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const fetchButton = document.getElementById('fetch-sheets');
+            const sheetUrlInput = document.getElementById('sheet_url');
+            const sheetSelector = document.getElementById('sheet-selector');
+            const generateButton = document.getElementById('generate-button');
+            const sheetNameSelect = document.getElementById('sheet_name');
+
+            if (fetchButton && sheetUrlInput) {
+                fetchButton.addEventListener('click', function() {
+                    const sheetUrl = sheetUrlInput.value;
+                    if (!sheetUrl) {
+                        alert('Please enter a Google Sheet URL');
+                        return;
+                    }
+
+                    // Show loading state
+                    this.disabled = true;
+                    this.textContent = 'Loading...';
+
+                    const formData = new FormData();
+                    formData.append('sheet_url', sheetUrl);
+
+                    fetch('/get-sheets', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+
+                        // Clear and populate the select element
+                        sheetNameSelect.innerHTML = '<option value="">Select a sheet</option>';
+                        
+                        data.sheets.forEach(sheet => {
+                            const option = document.createElement('option');
+                            option.value = sheet;
+                            option.textContent = sheet;
+                            sheetNameSelect.appendChild(option);
+                        });
+
+                        // Show the sheet selector and generate button
+                        sheetSelector.style.display = 'block';
+                        generateButton.style.display = 'block';
+                    })
+                    .catch(error => {
+                        alert(error.message || 'Error fetching sheets');
+                    })
+                    .finally(() => {
+                        // Reset button state
+                        this.disabled = false;
+                        this.textContent = 'Fetch Available Sheets';
+                    });
+                });
+            }
+        });
+    </script>
 </body>
 </html> 

@@ -22,45 +22,53 @@ def process_employee_data(employee):
     if isinstance(employee, pd.Series):
         employee = employee.to_dict()
     
+    # Helper function to handle empty/nan values
+    def clean_value(value, default_value='', is_numeric=False):
+        if pd.isna(value) or str(value).strip() == '':
+            return 0 if is_numeric else default_value
+        return value
+
+    # Required fields with default values
+    processed_data = {
+        'Name': clean_value(employee.get('Name')),
+        'Position': clean_value(employee.get('Position')),
+        'Days_Worked': clean_value(employee.get('Days Worked'), 0, True),
+        'Salary': clean_value(employee.get('Salary'), 0, True),
+        'Deductions': clean_value(employee.get('Deductions'), 0, True),
+        'Net_Pay': clean_value(employee.get('Net Pay'), 0, True),
+        'Previous_Loan_Balance': clean_value(employee.get('Previous Loan Balance'), 0, True),
+        'Current_Loan_Balance': clean_value(employee.get('Current Loan Balance'), 0, True),
+        'Currency': clean_value(employee.get('Currency'), 'PKR'),
+        'Method': clean_value(employee.get('Method')),
+        'Account': clean_value(employee.get('Account')),
+        'Comment': clean_value(employee.get('Comment'))
+    }
+    
     # Get position from the second column
     # First try the unnamed column, then try Position if it exists
-    position = ''
     if 'Unnamed: 1' in employee and not pd.isna(employee['Unnamed: 1']):
-        position = str(employee['Unnamed: 1']).strip()
+        processed_data['Position'] = str(employee['Unnamed: 1']).strip()
     elif 'Position' in employee and not pd.isna(employee['Position']):
-        position = str(employee['Position']).strip()
-    employee['Position'] = position
-    
-    # Clean up field names
-    employee['Days_Worked'] = employee.get('Days Worked', 0)
-    employee['Net_Pay'] = employee.get('Net Pay', 0)
-    employee['Previous_Loan_Balance'] = employee.get('Previous Loan Balance', 0)
-    employee['Current_Loan_Balance'] = employee.get('Current Loan balance', 0)
-    
-    # Handle Comment field - convert nan to empty string
-    employee['Comment'] = '' if pd.isna(employee.get('Comment')) else str(employee.get('Comment'))
+        processed_data['Position'] = str(employee['Position']).strip()
     
     # Add computed fields
     try:
-        deductions = employee.get('Deductions', 0)
-        if pd.isna(deductions) or str(deductions).strip() == '':
-            deductions = 0
-        elif isinstance(deductions, str):
+        deductions = processed_data['Deductions']
+        if isinstance(deductions, str):
             deductions = float(deductions.replace(',', ''))
-        
-        employee['has_deductions'] = deductions > 0
+        processed_data['has_deductions'] = deductions > 0
     except (ValueError, TypeError):
-        employee['has_deductions'] = False
+        processed_data['has_deductions'] = False
         
-    return employee
+    return processed_data
 
 def generate_salary_slips(csv_file):
     """Generate HTML salary slips from CSV data"""
     try:
         print(f"Reading CSV file: {csv_file}")
         
-        # Read the CSV file without headers first
-        df = pd.read_csv(csv_file, header=None, encoding='utf-8')
+        # Read the CSV file without headers first and allow any number of columns
+        df = pd.read_csv(csv_file, header=None, encoding='utf-8', on_bad_lines='skip')
         print("CSV data loaded, searching for payroll section...")
         
         # Find the payroll section start (row that contains "Name" in first column)
@@ -75,20 +83,41 @@ def generate_salary_slips(csv_file):
             
         print(f"Found payroll header at row {payroll_start}")
         
-        # Extract the payroll section and set proper column names
-        header_row = df.iloc[payroll_start]
+        # Extract the payroll section
         payroll_data = df.iloc[payroll_start + 1:].copy()  # Get data after header
+        header_row = df.iloc[payroll_start]
         
-        # Clean up column names and handle the position column
-        column_names = []
+        # Map the essential columns we need
+        column_mapping = {}
+        required_columns = ['Name', 'Position', 'Days Worked', 'Salary', 'Deductions', 'Net Pay', 
+                          'Previous Loan Balance', 'Current Loan Balance', 'Currency', 'Method', 'Account', 'Comment']
+        
+        # Create case-insensitive lookup dictionary
+        required_columns_lower = {col.lower(): col for col in required_columns}
+        
+        # Find the column indices for our required fields
         for i, col in enumerate(header_row):
-            if i == 1:  # Second column is position
-                column_names.append('Position')
-            elif pd.isna(col):
-                column_names.append(f'Unnamed: {i}')
+            if pd.isna(col):
+                continue
+            col_name = str(col).strip()
+            col_name_lower = col_name.lower()
+            if col_name_lower in required_columns_lower:
+                column_mapping[i] = required_columns_lower[col_name_lower]
+            elif i == 1 and 'position' not in column_mapping.values():  # Special case for position in second column
+                column_mapping[i] = 'Position'
+        
+        # Rename columns we care about and drop others
+        new_columns = {}
+        for i in range(len(payroll_data.columns)):
+            if i in column_mapping:
+                new_columns[i] = column_mapping[i]
             else:
-                column_names.append(col)
-        payroll_data.columns = column_names
+                new_columns[i] = f'Unused_{i}'
+        payroll_data.columns = [new_columns[i] for i in range(len(payroll_data.columns))]
+        
+        # Keep only the columns we need
+        columns_to_keep = [col for col in payroll_data.columns if not col.startswith('Unused_')]
+        payroll_data = payroll_data[columns_to_keep]
         
         # Process employees
         employees = []
@@ -97,16 +126,21 @@ def generate_salary_slips(csv_file):
         for idx, row in payroll_data.iterrows():
             try:
                 # Check if we're entering the business section
-                if isinstance(row['Name'], str) and row['Name'].strip().lower() == 'business':
+                name_value = row.get('Name', '')
+                if pd.isna(name_value):
+                    continue
+                    
+                name_value = str(name_value).strip().lower()
+                if name_value == 'business':
                     in_business_section = True
                     continue
                 
                 # Check if we're entering a non-payroll section
-                if isinstance(row['Name'], str) and row['Name'].strip().lower() in ['donation', 'expenses']:
+                if name_value in ['donation', 'expenses']:
                     break
                 
-                # Skip empty rows and section headers
-                if pd.isna(row['Name']) or str(row['Name']).strip().lower() in ['payroll', 'personal']:
+                # Skip section headers
+                if name_value in ['payroll', 'personal']:
                     continue
                 
                 # Check if this is a valid employee row (has salary)
@@ -114,7 +148,7 @@ def generate_salary_slips(csv_file):
                 if pd.isna(salary) or str(salary).strip() == '':
                     continue
                     
-                print(f"Processing row for employee: {row['Name']} ({'Business' if in_business_section else 'Personal'})")
+                print(f"Processing row for employee: {row.get('Name', '')} ({'Business' if in_business_section else 'Personal'})")
                 employee = process_employee_data(row)
                 employees.append(employee)
                 
@@ -129,7 +163,6 @@ def generate_salary_slips(csv_file):
         
         # Set up Jinja2 environment
         env = Environment(loader=FileSystemLoader('templates'))
-        # Add custom filters
         env.filters['format_currency'] = format_currency
         
         # Get the template

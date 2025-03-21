@@ -1,82 +1,198 @@
-{% extends "base.html" %}
-
-{% block content %}
-    <div class="no-print" style="background: #e9f7fe; padding: 10px; margin-bottom: 20px; border-left: 3px solid #2196F3;">
-        <h3 style="margin-top: 0;">Print Instructions:</h3>
-        <p>To print these salary slips:</p>
-        <ol>
-            <li>Press <strong>Ctrl+P</strong> (or Cmd+P on Mac)</li>
-            <li>Select your printer</li>
-            <li>Each salary slip will print on a separate page</li>
-        </ol>
-    </div>
-
-    {% for employee in employees %}
-    <div class="salary-slip">
-        <div class="header">
-            <h1>SALARY SLIP</h1>
-            <h2>For the month of {{ month_year }}</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salary Slips - {{ month_year }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+        }
+        .salary-slip {
+            border: 1px solid #ccc;
+            margin-bottom: 30px;
+            page-break-after: always;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #333;
+            font-size: 24px;
+        }
+        .header h2 {
+            margin: 5px 0;
+            color: #666;
+            font-size: 16px;
+        }
+        .employee-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .employee-info, .payment-info {
+            width: 48%;
+        }
+        .employee-info h3, .payment-info h3 {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .salary-details {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .salary-details th, .salary-details td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .salary-details th {
+            background-color: #f2f2f2;
+        }
+        .deduction-details {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-left: 3px solid #ff9800;
+            margin-bottom: 20px;
+        }
+        .deduction-details h3 {
+            color: #ff5722;
+            margin-top: 0;
+        }
+        .signature {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        .signature div {
+            width: 45%;
+        }
+        .signature-line {
+            border-top: 1px solid #333;
+            margin-top: 40px;
+            padding-top: 5px;
+        }
+        @media print {
+            body {
+                background-color: white;
+            }
+            .container {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+            .salary-slip {
+                border: none;
+                box-shadow: none;
+                margin-bottom: 0;
+            }
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Print Instructions -->
+        <div class="no-print" style="background: #e9f7fe; padding: 10px; margin-bottom: 20px; border-left: 3px solid #2196F3;">
+            <h3 style="margin-top: 0;">Print Instructions:</h3>
+            <p>To print these salary slips:</p>
+            <ol>
+                <li>Press <strong>Ctrl+P</strong> (or Cmd+P on Mac)</li>
+                <li>Select your printer</li>
+                <li>Each salary slip will print on a separate page</li>
+            </ol>
         </div>
-        
-        <div class="employee-details">
-            <div class="employee-info">
-                <h3>Employee Details</h3>
-                <p><strong>Name:</strong> {{ employee.Name }}</p>
-                <p><strong>Position:</strong> {{ employee.Position }}</p>
-                <p><strong>Days Worked:</strong> {{ employee.Days_Worked|default(0) }}</p>
-            </div>
-            <div class="payment-info">
-                <h3>Payment Details</h3>
-                <p><strong>Payment Method:</strong> {{ employee.Method|default('N/A') }}</p>
-                <p><strong>Account:</strong> {{ employee.Account|default('N/A') }}</p>
-                <p><strong>Currency:</strong> {{ employee.Currency|default('PKR') }}</p>
-            </div>
-        </div>
-        
-        <table class="salary-details">
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th>Amount ({{ employee.Currency|default('PKR') }})</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Basic Salary</td>
-                    <td>{{ employee.Salary|format_currency(employee.Currency) }}</td>
-                </tr>
-                <tr>
-                    <td>Deductions</td>
-                    <td>{{ employee.Deductions|format_currency(employee.Currency) }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Net Salary</strong></td>
-                    <td><strong>{{ employee.Net_Pay|format_currency(employee.Currency) }}</strong></td>
-                </tr>
-            </tbody>
-        </table>
 
-        {% if employee.has_deductions or employee.Previous_Loan_Balance %}
-        <div class="deduction-details">
-            <h3>Loan/Advance Details</h3>
-            {% if employee.Previous_Loan_Balance %}
-            <p><strong>Previous Loan Balance:</strong> {{ employee.Previous_Loan_Balance|format_currency(employee.Currency) }} {{ employee.Currency|default('PKR') }}</p>
-            <p><strong>Current Loan Balance:</strong> {{ employee.Current_Loan_Balance|format_currency(employee.Currency) }} {{ employee.Currency|default('PKR') }}</p>
+        {% for employee in employees %}
+        <div class="salary-slip">
+            <div class="header">
+                <h1>SALARY SLIP</h1>
+                <h2>For the month of {{ month_year }}</h2>
+            </div>
+            
+            <div class="employee-details">
+                <div class="employee-info">
+                    <h3>Employee Details</h3>
+                    <p><strong>Name:</strong> {{ employee.Name }}</p>
+                    <p><strong>Position:</strong> {{ employee.Position }}</p>
+                    <p><strong>Days Worked:</strong> {{ employee.Days_Worked }}</p>
+                </div>
+                <div class="payment-info">
+                    <h3>Payment Details</h3>
+                    <p><strong>Payment Method:</strong> {{ employee.Method }}</p>
+                    <p><strong>Account:</strong> {{ employee.Account }}</p>
+                    <p><strong>Currency:</strong> {{ employee.Currency }}</p>
+                </div>
+            </div>
+            
+            <table class="salary-details">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Amount ({{ employee.Currency }})</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Basic Salary</td>
+                        <td>{{ employee.Salary | format_currency(employee.Currency) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Deductions</td>
+                        <td>{{ employee.Deductions | format_currency(employee.Currency) }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Net Salary</strong></td>
+                        <td><strong>{{ employee.Net_Pay | format_currency(employee.Currency) }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            {% if employee.has_deductions or employee.Previous_Loan_Balance %}
+            <div class="deduction-details">
+                <h3>Loan/Advance Details</h3>
+                {% if employee.Previous_Loan_Balance %}
+                <p><strong>Previous Loan Balance:</strong> {{ employee.Previous_Loan_Balance | format_currency(employee.Currency) }} {{ employee.Currency }}</p>
+                <p><strong>Current Loan Balance:</strong> {{ employee.Current_Loan_Balance | format_currency(employee.Currency) }} {{ employee.Currency }}</p>
+                {% endif %}
+                {% if employee.Comment %}
+                <p><strong>Note:</strong> {{ employee.Comment }}</p>
+                {% endif %}
+            </div>
             {% endif %}
-            {% if employee.Comment %}
-            <p><strong>Note:</strong> {{ employee.Comment }}</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <div class="signature">
-            <div>
-                <p class="signature-line">Employee Signature</p>
-            </div>
-            <div>
-                <p class="signature-line">Employer Signature</p>
+            
+            <div class="signature">
+                <div>
+                    <p class="signature-line">Employee Signature</p>
+                </div>
+                <div>
+                    <p class="signature-line">Employer Signature</p>
+                </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-{% endblock %} 
+</body>
+</html> 
