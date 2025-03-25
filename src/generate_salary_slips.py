@@ -162,7 +162,8 @@ def generate_salary_slips(csv_file):
         print(f"Successfully processed {len(employees)} employees")
         
         # Set up Jinja2 environment
-        env = Environment(loader=FileSystemLoader('templates'))
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+        env = Environment(loader=FileSystemLoader(template_dir))
         env.filters['format_currency'] = format_currency
         
         # Get the template
@@ -184,7 +185,7 @@ def generate_salary_slips(csv_file):
 def main():
     try:
         # Get the current directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         print(f"Current directory: {current_dir}")
         
         # Input and output file paths

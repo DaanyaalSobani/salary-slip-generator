@@ -1,23 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
-import os
 import logging
+from pathlib import Path
 from werkzeug.utils import secure_filename
-from generate_salary_slips import generate_salary_slips
-from google_sheets_handler import read_google_sheet
+from .generate_salary_slips import generate_salary_slips
+from .google_sheets_handler import read_google_sheet
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Get the parent directory and set up paths
+PARENT_DIR = Path(__file__).parent.parent
+TEMPLATE_DIR = PARENT_DIR / 'templates'
+UPLOAD_DIR = PARENT_DIR / 'uploads'
+
+app = Flask(__name__, template_folder=str(TEMPLATE_DIR))
 app.secret_key = 'your-secret-key-here'  # Required for flash messages and sessions
 
 # Configure upload folder
-UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'csv'}
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_DIR.mkdir(exist_ok=True)
+app.config['UPLOAD_FOLDER'] = str(UPLOAD_DIR)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -53,17 +56,16 @@ def upload_file():
     
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+        filepath = UPLOAD_DIR / filename
+        file.save(str(filepath))
         
         try:
             # Generate salary slips
-            html_content = generate_salary_slips(filepath)
+            html_content = generate_salary_slips(str(filepath))
             
             # Save the generated HTML
-            output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'salary_slips.html')
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
+            output_path = UPLOAD_DIR / 'salary_slips.html'
+            output_path.write_text(html_content, encoding='utf-8')
             
             # Redirect to the salary slips page
             return redirect(url_for('show_salary_slips'))
@@ -88,19 +90,18 @@ def process_sheet_url():
         df = read_google_sheet(sheet_url, sheet_name)
         
         # Save data as CSV temporarily
-        temp_csv = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_sheet.csv')
-        df.to_csv(temp_csv, index=False)
+        temp_csv = UPLOAD_DIR / 'temp_sheet.csv'
+        df.to_csv(str(temp_csv), index=False)
         
         # Generate salary slips
-        html_content = generate_salary_slips(temp_csv)
+        html_content = generate_salary_slips(str(temp_csv))
         
         # Save the generated HTML
-        output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'salary_slips.html')
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        output_path = UPLOAD_DIR / 'salary_slips.html'
+        output_path.write_text(html_content, encoding='utf-8')
         
         # Clean up temporary CSV
-        os.remove(temp_csv)
+        temp_csv.unlink()
         
         # Redirect to the salary slips page
         return redirect(url_for('show_salary_slips'))
@@ -110,10 +111,9 @@ def process_sheet_url():
 
 @app.route('/salary-slips')
 def show_salary_slips():
-    output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'salary_slips.html')
-    if os.path.exists(output_path):
-        with open(output_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+    output_path = UPLOAD_DIR / 'salary_slips.html'
+    if output_path.exists():
+        content = output_path.read_text(encoding='utf-8')
         return content
     else:
         flash('No salary slips found. Please upload a CSV file or provide a Google Sheet URL.')
