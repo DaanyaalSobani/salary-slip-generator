@@ -35,6 +35,7 @@ def process_employee_data(employee):
         'Days_Worked': clean_value(employee.get('Days Worked'), 0, True),
         'Salary': clean_value(employee.get('Salary'), 0, True),
         'Deductions': clean_value(employee.get('Deductions'), 0, True),
+        'Additions': clean_value(employee.get('Additions'), 0, True),
         'Net_Pay': clean_value(employee.get('Net Pay'), 0, True),
         'Previous_Loan_Balance': clean_value(employee.get('Previous Loan Balance'), 0, True),
         'Current_Loan_Balance': clean_value(employee.get('Current Loan Balance'), 0, True),
@@ -59,6 +60,14 @@ def process_employee_data(employee):
         processed_data['has_deductions'] = deductions > 0
     except (ValueError, TypeError):
         processed_data['has_deductions'] = False
+        
+    try:
+        additions = processed_data['Additions']
+        if isinstance(additions, str):
+            additions = float(additions.replace(',', ''))
+        processed_data['has_additions'] = additions > 0
+    except (ValueError, TypeError):
+        processed_data['has_additions'] = False
         
     return processed_data
 
@@ -89,7 +98,7 @@ def generate_salary_slips(csv_file):
         
         # Map the essential columns we need
         column_mapping = {}
-        required_columns = ['Name', 'Position', 'Days Worked', 'Salary', 'Deductions', 'Net Pay', 
+        required_columns = ['Name', 'Position', 'Days Worked', 'Salary', 'Deductions', 'Additions', 'Net Pay', 
                           'Previous Loan Balance', 'Current Loan Balance', 'Currency', 'Method', 'Account', 'Comment']
         
         # Create case-insensitive lookup dictionary

@@ -111,6 +111,9 @@
             }
         }
     </style>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>
+            🎯
+        </text></svg>">
 </head>
 <body>
     <div class="container">
@@ -159,10 +162,18 @@
                         <td>Basic Salary</td>
                         <td>{{ employee.Salary | format_currency(employee.Currency) }}</td>
                     </tr>
+                    {% if employee.has_additions %}
+                    <tr>
+                        <td>Additions</td>
+                        <td>{{ employee.Additions | format_currency(employee.Currency) }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if employee.has_deductions %}
                     <tr>
                         <td>Deductions</td>
                         <td>{{ employee.Deductions | format_currency(employee.Currency) }}</td>
                     </tr>
+                    {% endif %}
                     <tr>
                         <td><strong>Net Salary</strong></td>
                         <td><strong>{{ employee.Net_Pay | format_currency(employee.Currency) }}</strong></td>
